@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:N_m3u8DL_CLI_SimpleG_List"
         xmlns:props="clr-namespace:N_m3u8DL_CLI_SimpleG_List.Properties"
         mc:Ignorable="d"
-        Title="N_m3u8DL-CLI-SimpleG v20220525" WindowStartupLocation="CenterScreen" Closing="Window_Closing" Loaded="Window_Loaded" Background="#FF252526" Width="974">
+        Title="N_m3u8DL-CLI-SimpleG v20261110" WindowStartupLocation="CenterScreen" Closing="Window_Closing" Loaded="Window_Loaded" Background="#FF252526" Width="974">
 
     <Window.Resources>
         <!-- Keep the form fields compact without changing the small numeric inputs below. -->

@@ -48,3 +48,47 @@ jobs:
             N_m3u8DL-CLI-SimpleG/bin/Release/*.config
           if-no-files-found: error
           retention-days: 30
+
+  release:
+    name: Publish dated release
+    needs: build
+    # Ordinary pushes only build. A commit with [release] publishes a GitHub Release.
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[release]')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout version label
+        uses: actions/checkout@v4
+
+      - name: Download Windows build
+        uses: actions/download-artifact@v4
+        with:
+          name: SimpleG-List-Windows-${{ github.run_number }}
+          path: release-files
+
+      - name: Package release ZIP
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/.*Title="N_m3u8DL-CLI-SimpleG v\([0-9]\{8\}\)".*/\1/p' N_m3u8DL-CLI-SimpleG/MainWindow.xaml | head -n 1)"
+          if [ -z "$version" ]; then echo 'Cannot find an 8-digit window-title version'; exit 1; fi
+          test -f release-files/N_m3u8DL-CLI-SimpleG_List.exe
+          tag="v$version"
+          package="N_m3u8DL-CLI-SimpleG_List_${tag}_Windows.zip"
+          zip -q -j "$package" release-files/*
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "package=$package" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.package.outputs.tag }}
+          RELEASE_PACKAGE: ${{ steps.package.outputs.package }}
+        shell: bash
+        run: |
+          gh release create "$RELEASE_TAG" "$RELEASE_PACKAGE" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "$RELEASE_TAG" \
+            --notes '下载日志和停止操作 UI 响应优化；输入框紧凑布局、列表和日志暗色滚动条。Windows .NET Framework 4.8 便携版，请与 N_m3u8DL-CLI 下载器放在同一目录。'
