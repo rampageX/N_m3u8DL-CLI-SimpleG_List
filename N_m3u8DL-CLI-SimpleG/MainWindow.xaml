@@ -8,6 +8,130 @@
         mc:Ignorable="d"
         Title="N_m3u8DL-CLI-SimpleG v20220525" WindowStartupLocation="CenterScreen" Closing="Window_Closing" Loaded="Window_Loaded" Background="#FF252526" Width="974">
 
+    <Window.Resources>
+        <!-- Keep the form fields compact without changing the small numeric inputs below. -->
+        <Style x:Key="CompactFieldTextBox" TargetType="{x:Type TextBox}">
+            <Setter Property="Height" Value="27"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="CompactFieldButton" TargetType="{x:Type Button}">
+            <Setter Property="Height" Value="27"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- WPF equivalent of FGS's dark native scrollbars, including the arrow buttons. -->
+        <ControlTemplate x:Key="DarkScrollArrowTemplate" TargetType="{x:Type RepeatButton}">
+            <Border x:Name="Chrome" Background="#FF2B2D30">
+                <Path Width="9" Height="9" HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Data="M 1,5 L 4.5,1.5 L 8,5" Stroke="#FFB8BDC5" StrokeThickness="1.5"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                      RenderTransformOrigin="0.5,0.5">
+                    <Path.RenderTransform>
+                        <RotateTransform Angle="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"/>
+                    </Path.RenderTransform>
+                </Path>
+            </Border>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Chrome" Property="Background" Value="#FF393C41"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter TargetName="Chrome" Property="Background" Value="#FF454A50"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter TargetName="Chrome" Property="Opacity" Value="0.4"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
+        <ControlTemplate x:Key="DarkScrollPageTemplate" TargetType="{x:Type RepeatButton}">
+            <Border Background="#FF252629"/>
+        </ControlTemplate>
+
+        <ControlTemplate x:Key="DarkScrollThumbTemplate" TargetType="{x:Type Thumb}">
+            <Border x:Name="ThumbChrome" Background="#FF55595F" CornerRadius="3" Margin="2"/>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="ThumbChrome" Property="Background" Value="#FF70767E"/>
+                </Trigger>
+                <Trigger Property="IsDragging" Value="True">
+                    <Setter TargetName="ThumbChrome" Property="Background" Value="#FF2B8B75"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
+        <ControlTemplate x:Key="DarkVerticalScrollBarTemplate" TargetType="{x:Type ScrollBar}">
+            <Grid Background="#FF252629">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="16"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="16"/>
+                </Grid.RowDefinitions>
+                <RepeatButton Grid.Row="0" Tag="0" Command="{x:Static ScrollBar.LineUpCommand}"
+                              Template="{StaticResource DarkScrollArrowTemplate}"/>
+                <Track x:Name="PART_Track" Grid.Row="1" IsDirectionReversed="True"
+                       Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
+                       ViewportSize="{TemplateBinding ViewportSize}"
+                       Value="{Binding Value, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                    <Track.DecreaseRepeatButton>
+                        <RepeatButton Command="{x:Static ScrollBar.PageUpCommand}" Template="{StaticResource DarkScrollPageTemplate}"/>
+                    </Track.DecreaseRepeatButton>
+                    <Track.Thumb>
+                        <Thumb MinHeight="18" Template="{StaticResource DarkScrollThumbTemplate}"/>
+                    </Track.Thumb>
+                    <Track.IncreaseRepeatButton>
+                        <RepeatButton Command="{x:Static ScrollBar.PageDownCommand}" Template="{StaticResource DarkScrollPageTemplate}"/>
+                    </Track.IncreaseRepeatButton>
+                </Track>
+                <RepeatButton Grid.Row="2" Tag="180" Command="{x:Static ScrollBar.LineDownCommand}"
+                              Template="{StaticResource DarkScrollArrowTemplate}"/>
+            </Grid>
+        </ControlTemplate>
+
+        <ControlTemplate x:Key="DarkHorizontalScrollBarTemplate" TargetType="{x:Type ScrollBar}">
+            <Grid Background="#FF252629">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="16"/>
+                </Grid.ColumnDefinitions>
+                <RepeatButton Grid.Column="0" Tag="-90" Command="{x:Static ScrollBar.LineLeftCommand}"
+                              Template="{StaticResource DarkScrollArrowTemplate}"/>
+                <Track x:Name="PART_Track" Grid.Column="1"
+                       Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
+                       ViewportSize="{TemplateBinding ViewportSize}"
+                       Value="{Binding Value, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                    <Track.DecreaseRepeatButton>
+                        <RepeatButton Command="{x:Static ScrollBar.PageLeftCommand}" Template="{StaticResource DarkScrollPageTemplate}"/>
+                    </Track.DecreaseRepeatButton>
+                    <Track.Thumb>
+                        <Thumb MinWidth="18" Template="{StaticResource DarkScrollThumbTemplate}"/>
+                    </Track.Thumb>
+                    <Track.IncreaseRepeatButton>
+                        <RepeatButton Command="{x:Static ScrollBar.PageRightCommand}" Template="{StaticResource DarkScrollPageTemplate}"/>
+                    </Track.IncreaseRepeatButton>
+                </Track>
+                <RepeatButton Grid.Column="2" Tag="90" Command="{x:Static ScrollBar.LineRightCommand}"
+                              Template="{StaticResource DarkScrollArrowTemplate}"/>
+            </Grid>
+        </ControlTemplate>
+
+        <!-- Implicit style also catches scrollbars created later by ListBox/ScrollViewer. -->
+        <Style TargetType="{x:Type ScrollBar}">
+            <Setter Property="Width" Value="14"/>
+            <Setter Property="Background" Value="#FF252629"/>
+            <Setter Property="Template" Value="{StaticResource DarkVerticalScrollBarTemplate}"/>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Width" Value="Auto"/>
+                    <Setter Property="Height" Value="14"/>
+                    <Setter Property="Template" Value="{StaticResource DarkHorizontalScrollBarTemplate}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
     <Grid Margin="5">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="420"/>
@@ -51,7 +175,7 @@
                 </Grid.ColumnDefinitions>
                 <CheckBox ToolTip="{x:Static props:Resources.topMost_Tip}" Checked="SetTopMost" Unchecked="SetTopMost" HorizontalAlignment="Center" VerticalAlignment="Center" Cursor="Hand" x:Name="CheckBox_TopMost" Grid.Column="2" Content="{x:Static props:Resources.topMost}" Margin="10,0,0,0" Foreground="#FFF1F1F1"/>
                 <TextBlock Grid.Column="0" Text="{x:Static props:Resources.exeToRun}" VerticalAlignment="Center" Foreground="#FFF1F1F1"/>
-                <TextBox ToolTip="{x:Static props:Resources.exeToRun_Tip}" TextChanged="TextChanged" Grid.Column="1" x:Name="TextBox_EXE" Text="N_m3u8DL-CLI.exe" Padding="3" Background="#FF333337" Foreground="#FFF1F1F1" BorderBrush="#FF3F3F46">
+                <TextBox Style="{StaticResource CompactFieldTextBox}" ToolTip="{x:Static props:Resources.exeToRun_Tip}" TextChanged="TextChanged" Grid.Column="1" x:Name="TextBox_EXE" Text="N_m3u8DL-CLI.exe" Padding="3" Background="#FF333337" Foreground="#FFF1F1F1" BorderBrush="#FF3F3F46">
                     <TextBox.ContextMenu>
                         <ContextMenu>
                             <MenuItem Header="{x:Static props:Resources.cut}" Command="Cut"/>
@@ -70,8 +194,8 @@
                     <ColumnDefinition Width="80"></ColumnDefinition>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Margin="0,0,10,0" Text="{x:Static props:Resources.workDir}" VerticalAlignment="Center" Foreground="#FFF1F1F1"/>
-                <TextBox ToolTip="{x:Static props:Resources.workDir_Tip}" TextChanged="TextChanged" Grid.Column="1" x:Name="TextBox_WorkDir" Padding="3" Background="#FF333337" Foreground="#FFF1F1F1" BorderBrush="#FF3F3F46"/>
-                <Button ToolTip="{x:Static props:Resources.changeDir_Tip}"  Grid.Column="2" Click="Button_SelectDir_Click" x:Name="Button_SelectDir" Content="{x:Static props:Resources.changeDir}" Margin="10,0,0,0" BorderBrush="#FF626263" Background="{x:Null}" Foreground="#FFF1F1F1"/>
+                <TextBox Style="{StaticResource CompactFieldTextBox}" ToolTip="{x:Static props:Resources.workDir_Tip}" TextChanged="TextChanged" Grid.Column="1" x:Name="TextBox_WorkDir" Padding="3" Background="#FF333337" Foreground="#FFF1F1F1" BorderBrush="#FF3F3F46"/>
+                <Button Style="{StaticResource CompactFieldButton}" ToolTip="{x:Static props:Resources.changeDir_Tip}"  Grid.Column="2" Click="Button_SelectDir_Click" x:Name="Button_SelectDir" Content="{x:Static props:Resources.changeDir}" Margin="10,0,0,0" BorderBrush="#FF626263" Background="{x:Null}" Foreground="#FFF1F1F1"/>
             </Grid>
             <Grid Grid.Row="2" Margin="4" Grid.ColumnSpan="3">
                 <Grid.ColumnDefinitions>
@@ -79,7 +203,7 @@
                     <ColumnDefinition></ColumnDefinition>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Margin="0,0,10,0" Width="70" Text="{x:Static props:Resources.m3u8}" VerticalAlignment="Center" Foreground="#FFF1F1F1"/>
-                <TextBox ToolTip="{x:Static props:Resources.m3u8_Tip}" AllowDrop="True" PreviewKeyDown="TextBox_URL_PreviewKeyDown" MouseDoubleClick="TextBox_URL_MouseDoubleClick" TextChanged="TextChanged" Grid.Column="1" x:Name="TextBox_URL" Padding="3" VerticalContentAlignment="Center" PreviewDragOver="TextBox_URL_PreviewDragOver" PreviewDrop="TextBox_URL_PreviewDrop" PreviewDragEnter="TextBox_URL_PreviewDragEnter" Background="#FF333337" Foreground="#FFF1F1F1" BorderBrush="#FF3F3F46"/>
+                <TextBox Style="{StaticResource CompactFieldTextBox}" ToolTip="{x:Static props:Resources.m3u8_Tip}" AllowDrop="True" PreviewKeyDown="TextBox_URL_PreviewKeyDown" MouseDoubleClick="TextBox_URL_MouseDoubleClick" TextChanged="TextChanged" Grid.Column="1" x:Name="TextBox_URL" Padding="3" VerticalContentAlignment="Center" PreviewDragOver="TextBox_URL_PreviewDragOver" PreviewDrop="TextBox_URL_PreviewDrop" PreviewDragEnter="TextBox_URL_PreviewDragEnter" Background="#FF333337" Foreground="#FFF1F1F1" BorderBrush="#FF3F3F46"/>
             </Grid>
             <Grid Grid.Row="3" Margin="4" Grid.ColumnSpan="3">
                 <Grid.ColumnDefinitions>
@@ -87,8 +211,8 @@
                     <ColumnDefinition Width="128*"></ColumnDefinition>
                     <ColumnDefinition Width="357*"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Margin="0,5,10,3.8" Width="70" Text="{x:Static props:Resources.title}" VerticalAlignment="Center" Foreground="#FFF1F1F1"/>
-                <TextBox ToolTip="{x:Static props:Resources.title_Tip}" PreviewKeyDown="TextBox_Title_PreviewKeyDown" MouseDoubleClick="TextBox_Title_MouseDoubleClick" TextChanged="TextChanged" Grid.Column="1" x:Name="TextBox_Title" Padding="3" VerticalContentAlignment="Center" Grid.ColumnSpan="2" Margin="0,0,-0.4,-0.2" Background="#FF333337" Foreground="#FFF1F1F1" BorderBrush="#FF3F3F46"/>
+                <TextBlock Grid.Column="0" Margin="0,0,10,0" Width="70" Text="{x:Static props:Resources.title}" VerticalAlignment="Center" Foreground="#FFF1F1F1"/>
+                <TextBox Style="{StaticResource CompactFieldTextBox}" ToolTip="{x:Static props:Resources.title_Tip}" PreviewKeyDown="TextBox_Title_PreviewKeyDown" MouseDoubleClick="TextBox_Title_MouseDoubleClick" TextChanged="TextChanged" Grid.Column="1" x:Name="TextBox_Title" Padding="3" VerticalContentAlignment="Center" Grid.ColumnSpan="2" Margin="0,0,-0.4,-0.2" Background="#FF333337" Foreground="#FFF1F1F1" BorderBrush="#FF3F3F46"/>
             </Grid>
 
             <Grid Grid.Row="4" Margin="4" Grid.ColumnSpan="3">
@@ -96,8 +220,8 @@
                     <ColumnDefinition Width="70"></ColumnDefinition>
                     <ColumnDefinition></ColumnDefinition>
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Margin="0,5,10,3.8" Width="70" Text="页面地址" VerticalAlignment="Center" Foreground="#FFF1F1F1"/>
-                <TextBox Grid.Column="1" x:Name="TextBox_PageUrl" Padding="3" VerticalContentAlignment="Center" Grid.ColumnSpan="2" Margin="0,0,-0.4,-0.2" Background="#FF333337" Foreground="#FFF1F1F1" BorderBrush="#FF3F3F46"/>
+                <TextBlock Grid.Column="0" Margin="0,0,10,0" Width="70" Text="页面地址" VerticalAlignment="Center" Foreground="#FFF1F1F1"/>
+                <TextBox Style="{StaticResource CompactFieldTextBox}" Grid.Column="1" x:Name="TextBox_PageUrl" Padding="3" VerticalContentAlignment="Center" Grid.ColumnSpan="2" Margin="0,0,-0.4,-0.2" Background="#FF333337" Foreground="#FFF1F1F1" BorderBrush="#FF3F3F46"/>
             </Grid>
 
             <Grid Grid.Row="5" Margin="4" Grid.ColumnSpan="3">
@@ -106,7 +230,7 @@
                     <ColumnDefinition></ColumnDefinition>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Margin="0,0,10,0" Width="70" Text="{x:Static props:Resources.headers}" VerticalAlignment="Center" Foreground="#FFF1F1F1"/>
-                <TextBox ToolTip="{x:Static props:Resources.headers_Tip}" TextChanged="TextChanged" Grid.Column="1" x:Name="TextBox_Headers" Padding="3" VerticalContentAlignment="Center" Background="#FF333337" Foreground="#FFF1F1F1" BorderBrush="#FF3F3F46"/>
+                <TextBox Style="{StaticResource CompactFieldTextBox}" ToolTip="{x:Static props:Resources.headers_Tip}" TextChanged="TextChanged" Grid.Column="1" x:Name="TextBox_Headers" Padding="3" VerticalContentAlignment="Center" Background="#FF333337" Foreground="#FFF1F1F1" BorderBrush="#FF3F3F46"/>
             </Grid>
             <Grid Grid.Row="6" Margin="4" Grid.ColumnSpan="3">
                 <Grid.ColumnDefinitions>
@@ -114,7 +238,7 @@
                     <ColumnDefinition></ColumnDefinition>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Margin="0,0,10,0" Width="70" Text="BASEURL" VerticalAlignment="Center" Foreground="#FFF1F1F1"/>
-                <TextBox ToolTip="{x:Static props:Resources.baseUrl_Tip}" TextChanged="TextChanged" Grid.Column="1" x:Name="TextBox_Baseurl" Padding="3" VerticalContentAlignment="Center" Background="#FF333337" Foreground="#FFF1F1F1" BorderBrush="#FF3F3F46"/>
+                <TextBox Style="{StaticResource CompactFieldTextBox}" ToolTip="{x:Static props:Resources.baseUrl_Tip}" TextChanged="TextChanged" Grid.Column="1" x:Name="TextBox_Baseurl" Padding="3" VerticalContentAlignment="Center" Background="#FF333337" Foreground="#FFF1F1F1" BorderBrush="#FF3F3F46"/>
             </Grid>
             <Grid Grid.Row="7" Margin="4" Grid.ColumnSpan="3">
                 <Grid.ColumnDefinitions>
@@ -122,7 +246,7 @@
                     <ColumnDefinition></ColumnDefinition>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Margin="0,0,10,0" Width="70" Text="{x:Static props:Resources.muxJson}" VerticalAlignment="Center" Foreground="#FFF1F1F1"/>
-                <TextBox ToolTip="{x:Static props:Resources.muxJson_Tip}" TextChanged="TextChanged" IsReadOnly="True" Background="#FF333337" Grid.Column="1" x:Name="TextBox_MuxJson" Padding="3" VerticalContentAlignment="Center" PreviewDragEnter="TextBox_MuxJson_PreviewDragEnter" PreviewDragOver="TextBox_MuxJson_PreviewDragOver" PreviewDrop="TextBox_MuxJson_PreviewDrop" BorderBrush="#FF3F3F46" Foreground="#FFF1F1F1"/>
+                <TextBox Style="{StaticResource CompactFieldTextBox}" ToolTip="{x:Static props:Resources.muxJson_Tip}" TextChanged="TextChanged" IsReadOnly="True" Background="#FF333337" Grid.Column="1" x:Name="TextBox_MuxJson" Padding="3" VerticalContentAlignment="Center" PreviewDragEnter="TextBox_MuxJson_PreviewDragEnter" PreviewDragOver="TextBox_MuxJson_PreviewDragOver" PreviewDrop="TextBox_MuxJson_PreviewDrop" BorderBrush="#FF3F3F46" Foreground="#FFF1F1F1"/>
             </Grid>
             <Grid Grid.Row="8" Margin="4" Grid.ColumnSpan="3">
                 <Grid.ColumnDefinitions>
@@ -130,7 +254,7 @@
                     <ColumnDefinition></ColumnDefinition>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Margin="0,0,10,0" Width="70" Text="{x:Static props:Resources.key}" VerticalAlignment="Center" Foreground="#FFF1F1F1"/>
-                <TextBox ToolTip="{x:Static props:Resources.key_Tip}" TextChanged="TextChanged" Grid.Column="1" x:Name="TextBox_Key" Padding="3" VerticalContentAlignment="Center" PreviewDragEnter="TextBox_Key_PreviewDragEnter" PreviewDragOver="TextBox_Key_PreviewDragOver" PreviewDrop="TextBox_Key_PreviewDrop" Background="#FF333337" BorderBrush="#FF3F3F46" Foreground="#FFF1F1F1"/>
+                <TextBox Style="{StaticResource CompactFieldTextBox}" ToolTip="{x:Static props:Resources.key_Tip}" TextChanged="TextChanged" Grid.Column="1" x:Name="TextBox_Key" Padding="3" VerticalContentAlignment="Center" PreviewDragEnter="TextBox_Key_PreviewDragEnter" PreviewDragOver="TextBox_Key_PreviewDragOver" PreviewDrop="TextBox_Key_PreviewDrop" Background="#FF333337" BorderBrush="#FF3F3F46" Foreground="#FFF1F1F1"/>
 
             </Grid>
             <Grid Grid.Row="9" Margin="4" Grid.ColumnSpan="3">
@@ -139,7 +263,7 @@
                     <ColumnDefinition></ColumnDefinition>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Margin="0,0,10,0" Width="70" Text="{x:Static props:Resources.iv}" VerticalAlignment="Center" Foreground="#FFF1F1F1"/>
-                <TextBox ToolTip="{x:Static props:Resources.iv_Tip}" TextChanged="TextChanged" Grid.Column="1" x:Name="TextBox_IV" Padding="3" VerticalContentAlignment="Center" PreviewDragEnter="TextBox_Key_PreviewDragEnter" PreviewDragOver="TextBox_Key_PreviewDragOver" PreviewDrop="TextBox_Key_PreviewDrop" Background="#FF333337" BorderBrush="#FF3F3F46" Foreground="#FFF1F1F1"/>
+                <TextBox Style="{StaticResource CompactFieldTextBox}" ToolTip="{x:Static props:Resources.iv_Tip}" TextChanged="TextChanged" Grid.Column="1" x:Name="TextBox_IV" Padding="3" VerticalContentAlignment="Center" PreviewDragEnter="TextBox_Key_PreviewDragEnter" PreviewDragOver="TextBox_Key_PreviewDragOver" PreviewDrop="TextBox_Key_PreviewDrop" Background="#FF333337" BorderBrush="#FF3F3F46" Foreground="#FFF1F1F1"/>
 
             </Grid>
             <Grid Grid.Row="11" Margin="4" Grid.ColumnSpan="3">
@@ -148,7 +272,7 @@
                     <ColumnDefinition></ColumnDefinition>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Margin="0,0,10,0" Width="70" Text="{x:Static props:Resources.setProxy}" VerticalAlignment="Center" Foreground="#FFF1F1F1"/>
-                <TextBox ToolTip="{x:Static props:Resources.setProxy_Tip}" TextChanged="TextChanged" Grid.Column="1" x:Name="TextBox_Proxy" Padding="3" VerticalContentAlignment="Center" PreviewDragEnter="TextBox_Key_PreviewDragEnter" PreviewDragOver="TextBox_Key_PreviewDragOver" PreviewDrop="TextBox_Key_PreviewDrop" Background="#FF333337" BorderBrush="#FF3F3F46" Foreground="#FFF1F1F1"/>
+                <TextBox Style="{StaticResource CompactFieldTextBox}" ToolTip="{x:Static props:Resources.setProxy_Tip}" TextChanged="TextChanged" Grid.Column="1" x:Name="TextBox_Proxy" Padding="3" VerticalContentAlignment="Center" PreviewDragEnter="TextBox_Key_PreviewDragEnter" PreviewDragOver="TextBox_Key_PreviewDragOver" PreviewDrop="TextBox_Key_PreviewDrop" Background="#FF333337" BorderBrush="#FF3F3F46" Foreground="#FFF1F1F1"/>
 
             </Grid>
             <Grid Grid.Row="12" Margin="4" Grid.ColumnSpan="3">
@@ -163,9 +287,9 @@
                         <ColumnDefinition Width="30"></ColumnDefinition>
                         <ColumnDefinition></ColumnDefinition>
                     </Grid.ColumnDefinitions>
-                    <TextBox ToolTip="{x:Static props:Resources.range_Tip1}" Text="00:00:00" TextChanged="TextChanged" Grid.Column="0" x:Name="TextBox_RangeStart" Padding="3" VerticalContentAlignment="Center" Background="#FF333337" Foreground="#FFF1F1F1" BorderBrush="#FF3F3F46"/>
+                    <TextBox Style="{StaticResource CompactFieldTextBox}" ToolTip="{x:Static props:Resources.range_Tip1}" Text="00:00:00" TextChanged="TextChanged" Grid.Column="0" x:Name="TextBox_RangeStart" Padding="3" VerticalContentAlignment="Center" Background="#FF333337" Foreground="#FFF1F1F1" BorderBrush="#FF3F3F46"/>
                     <TextBlock Text="—" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#FFF1F1F1"/>
-                    <TextBox ToolTip="{x:Static props:Resources.range_Tip2}" Text="00:00:00" TextChanged="TextChanged" Grid.Column="2" x:Name="TextBox_RangeEnd" Padding="3" VerticalContentAlignment="Center" Background="#FF333337" Foreground="#FFF1F1F1" BorderBrush="#FF3F3F46"/>
+                    <TextBox Style="{StaticResource CompactFieldTextBox}" ToolTip="{x:Static props:Resources.range_Tip2}" Text="00:00:00" TextChanged="TextChanged" Grid.Column="2" x:Name="TextBox_RangeEnd" Padding="3" VerticalContentAlignment="Center" Background="#FF333337" Foreground="#FFF1F1F1" BorderBrush="#FF3F3F46"/>
                 </Grid>
             </Grid>
             <Grid Grid.Row="13" Margin="4,0" VerticalAlignment="Center" Grid.ColumnSpan="3">
@@ -268,8 +392,8 @@
                     <ColumnDefinition Width="80"></ColumnDefinition>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Margin="0,0,10,0" Width="70" Text="{x:Static props:Resources.parm}" VerticalAlignment="Center" Foreground="#FFF1F1F1"/>
-                <TextBox ToolTip="{x:Static props:Resources.parm_Tip}" TextChanged="TextChanged" IsReadOnly="True" Background="#FF333337" Grid.Column="1" x:Name="TextBox_Parameter" Padding="3" VerticalContentAlignment="Center" Foreground="#FFF1F1F1" BorderBrush="#FF3F3F46"/>
-                <Button Click="AddToList_Click" Margin="10,0,0,0" Grid.Column="2" x:Name="Button_GO" Content="Add(_S)" ToolTip="{x:Static props:Resources.go_Tip}" Foreground="#FFF1F1F1" Background="{x:Null}" BorderBrush="#FF626263"/>
+                <TextBox Style="{StaticResource CompactFieldTextBox}" ToolTip="{x:Static props:Resources.parm_Tip}" TextChanged="TextChanged" IsReadOnly="True" Background="#FF333337" Grid.Column="1" x:Name="TextBox_Parameter" Padding="3" VerticalContentAlignment="Center" Foreground="#FFF1F1F1" BorderBrush="#FF3F3F46"/>
+                <Button Style="{StaticResource CompactFieldButton}" Click="AddToList_Click" Margin="10,0,0,0" Grid.Column="2" x:Name="Button_GO" Content="Add(_S)" ToolTip="{x:Static props:Resources.go_Tip}" Foreground="#FFF1F1F1" Background="{x:Null}" BorderBrush="#FF626263"/>
             </Grid>
             <Grid Grid.Row="19" Margin="4" Grid.ColumnSpan="3">
                 <Grid.ColumnDefinitions>
@@ -311,7 +435,8 @@
 
             </Grid>
             <Grid Grid.Row="1" Margin="2">
-                <ListBox x:Name="lbTaskList" HorizontalContentAlignment="Stretch" Background="{x:Null}" SelectionChanged="SelectionChanged_Click" SelectionMode="Single">
+                <ListBox x:Name="lbTaskList" HorizontalContentAlignment="Stretch" Background="{x:Null}" SelectionChanged="SelectionChanged_Click" SelectionMode="Single"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Grid Margin="0,2">
@@ -329,7 +454,7 @@
             </Grid>
 
             <Grid Grid.Row="2" Margin="2">
-                <ScrollViewer>
+                <ScrollViewer Background="#FF252526" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <TextBlock x:Name="LogBlock" Padding="2"  Foreground="#FFF1F1F1"  Background="{x:Null}" TextWrapping = "Wrap">
                     </TextBlock>
                 </ScrollViewer>
