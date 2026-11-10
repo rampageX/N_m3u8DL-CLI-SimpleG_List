@@ -1,0 +1,50 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: .NET Framework 4.8 WPF
+    runs-on: windows-2022
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore NuGet packages and build
+        shell: pwsh
+        run: |
+          msbuild N_m3u8DL-CLI-SimpleG_List.sln /restore /t:Rebuild /p:Configuration=Release '/p:Platform=Any CPU' /m /nologo
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify compiled EXE
+        shell: pwsh
+        run: |
+          $exe = 'N_m3u8DL-CLI-SimpleG/bin/Release/N_m3u8DL-CLI-SimpleG_List.exe'
+          if (-not (Test-Path -LiteralPath $exe)) { throw "Build output not found: $exe" }
+
+      - name: Upload portable application
+        uses: actions/upload-artifact@v4
+        with:
+          name: SimpleG-List-Windows-${{ github.run_number }}
+          path: |
+            N_m3u8DL-CLI-SimpleG/bin/Release/*.exe
+            N_m3u8DL-CLI-SimpleG/bin/Release/*.dll
+            N_m3u8DL-CLI-SimpleG/bin/Release/*.config
+          if-no-files-found: error
+          retention-days: 30

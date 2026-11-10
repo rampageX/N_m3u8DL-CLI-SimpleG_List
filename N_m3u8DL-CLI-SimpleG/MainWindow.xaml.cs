@@ -108,14 +108,24 @@ namespace N_m3u8DL_CLI_SimpleG_List
 
         //下载进程
         private Process m3u8dlProcess;
-        private TaskCompletionSource<bool> m3u8dlEventHandled;
-        //下载时，读取后台下载进程的log到UI用
-        StreamReader logBlockReader;
+        // 在后台缓存下载日志，限制缓存大小并在 UI 线程定时合并刷新。
+        private const int MaxLogLines = 100;
+        private readonly object logLinesLock = new object();
+        private readonly Queue<string> pendingLogLines = new Queue<string>();
+        private readonly LinkedList<string> visibleLogLines = new LinkedList<string>();
+        private readonly DispatcherTimer logRefreshTimer;
 
         public MainWindow()
         {
             InitializeComponent();
             TextBox_URL.Focus();
+
+            logRefreshTimer = new DispatcherTimer(DispatcherPriority.Background)
+            {
+                Interval = TimeSpan.FromMilliseconds(150)
+            };
+            logRefreshTimer.Tick += (s, e) => FlushLogBlock();
+            logRefreshTimer.Start();
 
             //当通过协议启动时，目录会指向 windows/system32
             //设置当前目录为exe所在目录，防止因快捷方式或通过协议启动时，当前目录不是exe目录，导致找不到目录下的其他文件
@@ -748,6 +758,7 @@ namespace N_m3u8DL_CLI_SimpleG_List
             File.WriteAllText("config.txt", config);
 
             //关闭任务
+            logRefreshTimer.Stop();
             Helper.cts.Cancel();
             //Process.GetCurrentProcess().Kill();
 
@@ -1198,67 +1209,76 @@ namespace N_m3u8DL_CLI_SimpleG_List
         }
 
         /// <summary>
-        /// 向LogBlock控件写入一行下载日志
+        /// 后台读取线程缓存一行下载日志。
         /// </summary>
         /// <param name="line"></param>
-        private void WriteLogBlockLine(string line)
+        private void QueueLogBlockLine(string line)
         {
-            line = line.Trim() + Environment.NewLine;
+            if (line == null)
+                return;
 
-            //TextBlock是性能杀手，每次都要重新绘制整个输入框，内容多了性能下降难以相像。
-            //限制行数，避免无限增长导致卡顿
-            int lineCount = LogBlock.Text.Count(c => c == '\n');
-            if (lineCount > 100)
+            lock (logLinesLock)
             {
-                ClearLogBlock();
+                if (pendingLogLines.Count >= MaxLogLines)
+                    pendingLogLines.Dequeue();
+                pendingLogLines.Enqueue(line.Trim());
             }
+        }
 
-            try
+        /// <summary>
+        /// UI 线程每 150ms 合并刷新一次，最多显示最近 100 行。
+        /// </summary>
+        private void FlushLogBlock()
+        {
+            lock (logLinesLock)
             {
-                
-                LogBlock.Text = line + LogBlock.Text;
-            }
-            catch (Exception e)
-            {
-                //Debug.WriteLine($"更新LogBlock控件遇到错误：{e.Message}");
-                //Debug.WriteLine("改为用this.Dispatcher.BeginInvoke调用控件");
-                //线程中，不能调用UI控件，只能这样间接调用
-                //不然会报错：调用线程无法访问此对象 因为另一个线程拥有该对象
-                //参考：https://www.yuantk.com/weblog/dee39674-c663-4e31-bf81-523518165a78.html
-                //在创建控件的基础句柄所在线程上异步执行指定委托。
-                this.Dispatcher.BeginInvoke(new Action(() =>
+                if (pendingLogLines.Count == 0)
+                    return;
+
+                while (pendingLogLines.Count > 0)
                 {
-                    LogBlock.Text = line + LogBlock.Text;
-                }));
+                    visibleLogLines.AddFirst(pendingLogLines.Dequeue());
+                    if (visibleLogLines.Count > MaxLogLines)
+                        visibleLogLines.RemoveLast();
+                }
             }
 
+            StringBuilder builder = new StringBuilder();
+            foreach (string visibleLine in visibleLogLines)
+                builder.AppendLine(visibleLine);
+            LogBlock.Text = builder.ToString();
         }
 
 
         /// <summary>
         /// 清理LogBlock控件内容
         /// </summary>
-        /// <param name="line"></param>
         private void ClearLogBlock()
         {
-            try
+            lock (logLinesLock)
             {
-                LogBlock.Text = "";
+                pendingLogLines.Clear();
             }
-            catch (Exception e)
+            visibleLogLines.Clear();
+            LogBlock.Text = "";
+        }
+
+        /// <summary>
+        /// 在工作线程读取子进程标准输出，返回是否检测到下载失败标记。
+        /// </summary>
+        private bool ReadDownloadLog(StreamReader reader)
+        {
+            string line;
+            while ((line = reader.ReadLine()) != null)
             {
-                //Debug.WriteLine($"更新LogBlock控件遇到错误：{e.Message}");
-                //Debug.WriteLine("改为用this.Dispatcher.BeginInvoke调用控件");
-                //线程中，不能调用UI控件，只能这样间接调用
-                //不然会报错：调用线程无法访问此对象 因为另一个线程拥有该对象
-                //参考：https://www.yuantk.com/weblog/dee39674-c663-4e31-bf81-523518165a78.html
-                //在创建控件的基础句柄所在线程上异步执行指定委托。
-                this.Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    LogBlock.Text = "";
-                }));
+                QueueLogBlockLine(line);
+                if (line.Contains("地址无效") || line.Contains("磁盘空间不足") ||
+                    line.Contains("下载失败, 程序退出") || line.Contains("强制退出") ||
+                    line.Contains("无效的m3u8") || line.Contains("录制已到达限定长度"))
+                    return true;
             }
 
+            return false;
         }
 
 
@@ -1270,94 +1290,54 @@ namespace N_m3u8DL_CLI_SimpleG_List
         /// <returns></returns>
         private async Task StartDownloadProcessAsync(string fileName, string arguments)
         {
-            m3u8dlEventHandled = new TaskCompletionSource<bool>();
-
-            using (m3u8dlProcess = new Process())
+            using (Process process = new Process())
             {
+                m3u8dlProcess = process;
                 try
                 {
-                    // Start a process to print a file and raise an event when done.
-                    m3u8dlProcess.StartInfo.FileName = fileName;
-                    m3u8dlProcess.StartInfo.Arguments = arguments;
-                    m3u8dlProcess.StartInfo.UseShellExecute = false;        //是否使用操作系统shell启动
-                    m3u8dlProcess.StartInfo.CreateNoWindow = true;          //不显示程序窗口
-                    m3u8dlProcess.StartInfo.RedirectStandardOutput = true;  //由调用程序获取输出信息
-                    //m3u8dlProcess.StartInfo.StandardOutputEncoding = Encoding.UTF8;
-                    //m3u8dlProcess.StartInfo.RedirectStandardError = true;   //重定向标准错误输出
-                    //m3u8dlProcess.StartInfo.StandardErrorEncoding = Encoding.UTF8;
-                    //m3u8dlProcess.StartInfo.RedirectStandardInput = true;   //接受来自调用程序的输入信息
-                    //m3u8dlProcess.StandardInput.AutoFlush = true;
-                    m3u8dlProcess.EnableRaisingEvents = true; //要求引发Exited事件
-                    m3u8dlProcess.Exited += new EventHandler(DownloadProcess_Exited);
-                    m3u8dlProcess.Start(); //启动
-
+                    process.StartInfo.FileName = fileName;
+                    process.StartInfo.Arguments = arguments;
+                    process.StartInfo.UseShellExecute = false;
+                    process.StartInfo.CreateNoWindow = true;
+                    process.StartInfo.RedirectStandardOutput = true;
+                    process.Start();
                 }
                 catch (Exception e)
                 {
                     MessageBox.Show($"调用下载进程出错:{e.Message}");
+                    // 防止调用失败后将任务误标为 Done。
+                    m3u8dlProcess = null;
+                    StopTask("Failed");
                     return;
                 }
 
-                // 等待后台进程Log
                 try
                 {
-                    //获取输出
-                    logBlockReader = m3u8dlProcess.StandardOutput;
-                    // 每次读取一行
-                    string line = "";
-                    while (logBlockReader != null && !logBlockReader.EndOfStream)
-                    {
-                        line = await logBlockReader.ReadLineAsync();
-                        WriteLogBlockLine(line);
+                    // 同步 ReadLine/EndOfStream 不能运行在 WPF UI 线程。
+                    bool reportedFailure = await Task.Run(() => ReadDownloadLog(process.StandardOutput));
+                    FlushLogBlock();
+                    if (reportedFailure)
+                        StopTask("Failed");
 
-                        //检查内容是不是地址无效
-                        if (line.Contains("地址无效") || line.Contains("磁盘空间不足") || line.Contains("下载失败, 程序退出") || line.Contains("强制退出") || line.Contains("无效的m3u8") || line.Contains("地址无效") || line.Contains("录制已到达限定长度")) 
-                        {
-                            //要终止写入，并停止这个任务的下载
-                            StopTask("Failed");
-                            break;
-                        }
+                    // 进程等待也放到后台，不会因下载器退出缓慢卡住窗口。
+                    await Task.Run(() => process.WaitForExit());
+                    if (tasks_status != "Stopped" && process.ExitCode != 0)
+                        StopTask("Failed");
+                }
+                catch (Exception e)
+                {
+                    if (tasks_status != "Stopped")
+                    {
+                        MessageBox.Show($"读取后台下载进程Log出错:{e.Message}");
+                        StopTask("Failed");
                     }
                 }
-                catch (Exception e)
+                finally
                 {
-                    MessageBox.Show($"读取后台下载进程Log出错:{e.Message}");
-                    return;
+                    if (ReferenceEquals(m3u8dlProcess, process))
+                        m3u8dlProcess = null;
                 }
-
-                // 等待完成事件
-                try 
-                {
-                    await Task.WhenAny(m3u8dlEventHandled.Task);
-                }
-                catch (Exception e)
-                {
-                    MessageBox.Show($"等待进程完成出错:{e.Message}");
-                    return;
-                }
-
-
-
             }
-        }
-
-        /// <summary>
-        /// 处理进程完成的事件。这里就是打开下一个下载任务
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void DownloadProcess_Exited(object sender, System.EventArgs e)
-        {
-            try
-            {
-                m3u8dlEventHandled.TrySetResult(true);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"设置下载进程为完成时出错:{ex.Message}");
-                return;
-            }
-
         }
 
         /// <summary>
@@ -1492,29 +1472,14 @@ namespace N_m3u8DL_CLI_SimpleG_List
                 }
             }
 
-            //终止logBlockReader写入
-            if (logBlockReader != null)
-            {
-                try
-                {
-                    logBlockReader.Close();
-                    logBlockReader = null;
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"中止下载Log读取器时出错：{ex.Message}");
-                }
-            }
-
             //终止正在进行的下载进程
             if (m3u8dlProcess != null)
             {
                 try
                 {
-                    m3u8dlProcess.Kill();
-                    m3u8dlProcess.WaitForExit();
-                    m3u8dlProcess.Close();
-                    m3u8dlProcess = null;
+                    // 后台读取器会随进程退出而结束，避免在 UI 线程同步等待。
+                    if (!m3u8dlProcess.HasExited)
+                        m3u8dlProcess.Kill();
                 }
                 catch (Exception ex)
                 {
